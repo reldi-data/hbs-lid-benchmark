@@ -1,72 +1,89 @@
-
-
-# %%
-import pandas as pd
-from pathlib import Path
-from utils import transliterate
-
-setimes = pd.read_json(str(Path("repodata/data/SETimes.HBS.json"))).rename(columns={"language": "labels"})
-twitter = pd.read_json(str(Path("repodata/data/Twitter-HBS.json"))).rename(columns={"language":  "labels"})
-twitter["text"] = twitter.tweets.apply(lambda l: " ".join(l))
-
-
-url_pattern = r"[A-Za-z]+:\/\/[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_:%&;\?\#\/.=]+"
-username_pattern = r"@\S+"
-hashtag_pattern = r"#\S+"
-twitter["text"] = twitter.text.str.replace(
-    url_pattern, "", regex=True).str.replace(
-    username_pattern, " ", regex=True).str.replace(
-    hashtag_pattern, "", regex=True ).str.replace(
-    "\sRT\s+:", " ", regex=True).apply(transliterate).str.replace(
-    "\n", " ")
-
-# %%
-from utils import load_fasttext, get_stats
-wac100 = load_fasttext(str(Path("ndat/final/wacs_100k.fasttext")))
-
-resultdict, vec, clf = get_stats(
-    train_df = wac100,
-    eval_df = setimes,
-    classifier_type="NaiveBayes",
-    vectorizer_type="web",
-)
-
-# %%
-y_true, y_pred = resultdict["y_true"], resultdict["y_pred"]
-y_true == setimes.labels.tolist()
-setimes["y_pred"] = y_pred
-
-# %%
-
-resultdict, vec, clf = get_stats(
-    train_df = wac100[wac100.labels!="me"],
-    eval_df = twitter[twitter.labels!="me"],
-    classifier_type="NaiveBayes",
-    vectorizer_type="web",
-)
-
-# %%
-twitter["twitter_3"] = None
-twitter.loc[twitter.labels!="me", "twitter_3"] = resultdict["y_pred"]
-
-# %%
-resultdict, vec, clf = get_stats(
-    train_df = wac100,
-    eval_df = twitter,
-    classifier_type="NaiveBayes",
-    vectorizer_type="web",
-)
-
-twitter["twitter_4"] = resultdict["y_pred"]
-
-# %%
-results = [
-    {"setimes": setimes.y_pred.tolist(),
-     "twitter_3": twitter.twitter_3.tolist(),
-     "twitter_4": twitter.twitter_4.tolist()}
-]
+from utils import transliterate, load_fasttext, get_stats
+from sklearn.pipeline import Pipeline
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.svm import LinearSVC
+from sklearn.linear_model import SGDClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.metrics import classification_report
 import json
-with open(Path("hbs-lid-benchmark/web/results.json").__str__(), "w") as f:
-    json.dump(results, f)
+from utils import load_twitter_dataset, load_setimes_dataset
+from collections import Counter
+from random import seed
+seed(42)
+import pandas as pd
+
+twitter_X,twitter_y=load_twitter_dataset()
+twitter3_X,twitter3_y=load_twitter_dataset(['bs','hr','sr'])
+setimes_X,setimes_y=load_setimes_dataset()
+twitter3_train = pd.DataFrame({"labels": twitter3_y["train"], "text": twitter3_X["train"]})
+twitter3_test = pd.DataFrame({"labels": twitter3_y["test"], "text": twitter3_X["test"]})
+
+twitter_train = pd.DataFrame({"labels": twitter_y["train"], "text": twitter_X["train"]})
+twitter_test = pd.DataFrame({"labels": twitter_y["test"], "text": twitter_X["test"]})
+
+setimes_train = pd.DataFrame({"labels": setimes_y["train"], "text": setimes_X["train"]})
+setimes_test = pd.DataFrame({"labels": setimes_y["test"], "text": setimes_X["test"]})
 
 
+
+
+pred_report={'system':'web+NaiveBayes','predictions':[]}
+
+preds=pred_report['predictions']
+print('setimes clf on setimes_test')
+d = get_stats(
+    train_df = setimes_train,
+    eval_df = setimes_test,
+    classifier_type="NaiveBayes",
+    vectorizer_type="web",
+)[0]
+pred=d["y_pred"]
+preds.append({'train':'setimes','test':'setimes','predictions':pred })
+print(classification_report(setimes_y['test'],pred,digits=3))
+
+print('setimes clf on twitter3_test')
+d = get_stats(
+    train_df = setimes_train,
+    eval_df = twitter3_test,
+    classifier_type="NaiveBayes",
+    vectorizer_type="web",
+)[0]
+pred=d["y_pred"]
+preds.append({'train':'setimes','test':'twitter3','predictions':pred })
+print(classification_report(twitter3_y['test'],pred,digits=3))
+
+
+print('twitter3 clf on setimes_test')
+d = get_stats(
+    train_df = twitter3_train,
+    eval_df = setimes_test,
+    classifier_type="NaiveBayes",
+    vectorizer_type="web",
+)[0]
+pred=d["y_pred"]
+preds.append({'train':'twitter3','test':'setimes','predictions':pred })
+print(classification_report(setimes_y['test'],pred,digits=3))
+print('twitter3 clf on twitter_test')
+d = get_stats(
+    train_df = twitter3_train,
+    eval_df = twitter_test,
+    classifier_type="NaiveBayes",
+    vectorizer_type="web",
+)[0]
+pred=d["y_pred"]
+preds.append({'train':'twitter3','test':'twitter3','predictions':pred })
+print(classification_report(twitter_y['test'],pred,digits=3))
+
+
+print('twitter clf on twitter_test')
+d = get_stats(
+    train_df = twitter_train,
+    eval_df = twitter_test,
+    classifier_type="NaiveBayes",
+    vectorizer_type="web",
+)[0]
+pred=d["y_pred"]
+preds.append({'train':'twitter','test':'twitter','predictions':pred })
+print(classification_report(twitter_y['test'],pred,digits=3))
+
+json.dump(pred_report,open('web.predictions.json','wt'))
