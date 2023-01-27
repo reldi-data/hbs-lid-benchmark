@@ -24,66 +24,45 @@ twitter_test = pd.DataFrame({"labels": twitter_y["test"], "text": twitter_X["tes
 setimes_train = pd.DataFrame({"labels": setimes_y["train"], "text": setimes_X["train"]})
 setimes_test = pd.DataFrame({"labels": setimes_y["test"], "text": setimes_X["test"]})
 
-
+wac = load_fasttext("/home/peterr/macocu/task22/ndat/final/wacs_100k.fasttext")
+wac3 = wac[wac.labels != "me"]
 
 
 pred_report={'system':'web+NaiveBayes','predictions':[]}
 
 preds=pred_report['predictions']
-print('setimes clf on setimes_test')
+print('web clf on setimes_test')
 d = get_stats(
-    train_df = setimes_train,
+    train_df = wac3,
     eval_df = setimes_test,
     classifier_type="NaiveBayes",
     vectorizer_type="web",
 )[0]
 pred=d["y_pred"]
-preds.append({'train':'setimes','test':'setimes','predictions':pred })
+preds.append({'train':'web3class','test':'setimes','predictions':pred })
 print(classification_report(setimes_y['test'],pred,digits=3))
 
-print('setimes clf on twitter3_test')
+print('web clf on twitter3_test')
 d = get_stats(
-    train_df = setimes_train,
+    train_df = wac3,
     eval_df = twitter3_test,
     classifier_type="NaiveBayes",
     vectorizer_type="web",
 )[0]
 pred=d["y_pred"]
-preds.append({'train':'setimes','test':'twitter3','predictions':pred })
+preds.append({'train':'web3class','test':'twitter3','predictions':pred })
 print(classification_report(twitter3_y['test'],pred,digits=3))
 
-
-print('twitter3 clf on setimes_test')
+print('web clf on twitter_test')
 d = get_stats(
-    train_df = twitter3_train,
-    eval_df = setimes_test,
-    classifier_type="NaiveBayes",
-    vectorizer_type="web",
-)[0]
-pred=d["y_pred"]
-preds.append({'train':'twitter3','test':'setimes','predictions':pred })
-print(classification_report(setimes_y['test'],pred,digits=3))
-print('twitter3 clf on twitter_test')
-d = get_stats(
-    train_df = twitter3_train,
+    train_df = wac,
     eval_df = twitter_test,
     classifier_type="NaiveBayes",
     vectorizer_type="web",
 )[0]
 pred=d["y_pred"]
-preds.append({'train':'twitter3','test':'twitter3','predictions':pred })
+preds.append({'train':'web4class','test':'twitter','predictions':pred })
 print(classification_report(twitter_y['test'],pred,digits=3))
 
-
-print('twitter clf on twitter_test')
-d = get_stats(
-    train_df = twitter_train,
-    eval_df = twitter_test,
-    classifier_type="NaiveBayes",
-    vectorizer_type="web",
-)[0]
-pred=d["y_pred"]
-preds.append({'train':'twitter','test':'twitter','predictions':pred })
-print(classification_report(twitter_y['test'],pred,digits=3))
 
 json.dump(pred_report,open('web.predictions.json','wt'))
