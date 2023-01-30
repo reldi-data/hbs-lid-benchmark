@@ -7,8 +7,6 @@ from sklearn.metrics import classification_report
 import json
 from utils import load_twitter_dataset, load_setimes_dataset
 from collections import Counter
-from random import seed
-seed(42)
 
 clf=LinearSVC()
 
@@ -24,6 +22,8 @@ clf = Pipeline([
 pred_report={'system':'char_ngram_baseline','predictions':[]}
 
 preds=pred_report['predictions']
+golds={'setimes':setimes_y['test'],'twitter3':twitter3_y['test'],'twitter':twitter_y['test']}
+
 clf.fit(setimes_X['train'],setimes_y['train'])
 print('setimes clf on setimes_test')
 pred=clf.predict(setimes_X['test'])
@@ -50,5 +50,5 @@ print('twitter clf on twitter_test')
 pred=clf.predict(twitter_X['test'])
 preds.append({'train':'twitter','test':'twitter','predictions':pred.tolist()})
 print(classification_report(twitter_y['test'],pred,digits=3))
-
+json.dump(golds,open('gold.predictions.json','wt'))
 json.dump(pred_report,open('char_ngram_baseline.predictions.json','wt'))
